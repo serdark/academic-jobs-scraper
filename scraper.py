@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
+# "üniversitesi" kelimesini de test için ekledim.
 KEYWORDS = [
     "görsel", "görsel iletişim", "iletişim tasarım", "iletişim ve tasarımı", 
     "iletişim tasarımı", "grafik", "gastronomi", "mutfak sanatları", "üniversitesi"
@@ -35,7 +36,8 @@ def main():
         try:
             href = link.get_attribute('href')
             text = link.text.strip().lower()
-            if href and "ilan.gov.tr/ilan/detay/" in href and text:
+            # Link ayrıştırma hatasını düzelttiğim satır:
+            if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href and text:
                 if any(kw in text for kw in KEYWORDS):
                     unique_jobs[href] = link.text.strip()
         except: continue
