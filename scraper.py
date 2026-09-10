@@ -11,7 +11,7 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
 KEYWORDS = [
     "görsel", "görsel iletişim", "iletişim tasarım", "iletişim ve tasarımı", 
-    "iletişim tasarımı", "grafik", "gastronomi", "mutfak sanatları", "üniversite"
+    "iletişim tasarımı", "grafik", "gastronomi", "mutfak sanatları", "üniversitesi"
 ]
 
 def send_telegram_message(message):
