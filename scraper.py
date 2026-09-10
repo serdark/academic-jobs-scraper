@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import json
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -9,11 +10,37 @@ from selenium.webdriver.common.by import By
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
-# "üniversitesi" kelimesini de test için ekledim.
 KEYWORDS = [
     "görsel", "görsel iletişim", "iletişim tasarım", "iletişim ve tasarımı", 
     "iletişim tasarımı", "grafik", "gastronomi", "mutfak sanatları"
 ]
+
+def translate_title(title):
+    # Gereksiz resmi kelimeleri siler
+    t = title.replace("Rektörlüğünden", "").replace("Rektörlüğü", "")
+    t = t.replace("Başkanlığından", "").replace("Başkanlığı", "")
+    
+    # Kurum isimlerini İngilizceye çevirir
+    t = t.replace("Üniversitesi", "University").replace("Üniversite", "University")
+    t = t.replace("Enstitüsü", "Institute").replace("Enstitü", "Institute")
+    t = t.replace("Vakfı", "Foundation")
+    
+    # Unvanları ve Ekleri İngilizceye çevirir
+    t = t.replace("Öğretim Üyesi", "Faculty Member")
+    t = t.replace("Öğretim Elemanı", "Academic Staff")
+    t = t.replace("Öğretim Görevlisi", "Lecturer")
+    t = t.replace("Araştırma Görevlisi", "Research Assistant")
+    t = t.replace("Akademik Personel", "Academic Staff")
+    t = t.replace("Alım İlanı", "Recruitment")
+    t = t.replace("Alımı İlanı", "Recruitment")
+    t = t.replace("Alımı", "Recruitment")
+    t = t.replace("İlanı", "Announcement")
+    t = t.replace("İlan", "Announcement")
+    t = t.replace("Düzeltme", "Correction")
+    
+    # Fazladan boşlukları temizler
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -36,7 +63,6 @@ def main():
         try:
             href = link.get_attribute('href')
             text = link.text.strip().lower()
-            # Link ayrıştırma hatasını düzelttiğim satır:
             if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href and text:
                 if any(kw in text for kw in KEYWORDS):
                     unique_jobs[href] = link.text.strip()
@@ -49,7 +75,8 @@ def main():
     new_jobs = [(url, title) for url, title in unique_jobs.items() if url not in seen_history]
     
     for url, title in new_jobs:
-        send_telegram_message(f"🔔 <b>YENİ İLAN!</b>\n\n<b>{title}</b>\n\n<a href='{url}'>İlanı Görüntüle</a>")
+        english_title = translate_title(title)
+        send_telegram_message(f"<b>{english_title}</b>\n\n<a href='{url}'>View Details</a>")
         seen_history.append(url)
         time.sleep(1)
         
