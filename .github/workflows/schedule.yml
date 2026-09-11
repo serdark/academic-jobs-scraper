@@ -2,8 +2,7 @@ name: Academic Jobs Scraper
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
-  workflow_dispatch:
+    - cron: "0 0,3,5,7,9,11,13,15,18,21 * * *"  workflow_dispatch:
 
 permissions:
   contents: write
