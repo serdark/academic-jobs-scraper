@@ -16,7 +16,6 @@ KEYWORDS = [
 ]
 
 def turkish_lower(text):
-    # Türkçe İ/I harflerinin sorunsuz küçültülmesini sağlar
     return text.replace("İ", "i").replace("I", "ı").lower()
 
 def translate_title(title):
@@ -43,36 +42,47 @@ def main():
     options.add_argument("--disable-dev-shm-usage")
     driver = webdriver.Chrome(options=options)
     
-    unique_jobs = {}
+    seen_file = "seen_jobs.json"
+    seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
     
-    # Artık ilanı kaçırmamak için ilk 2 sayfayı (0 ve 1) sırayla geziyoruz!
+    all_links = {}
+    
+    # Sadece 1. ve 2. sayfadaki linkleri topluyoruz
     for page in [0, 1]:
         driver.get(f"https://www.ilan.gov.tr/ilan/kategori/73/akademik-personel-alimlari?currentPage={page}&field=publish_time&order=desc")
         time.sleep(10)
         
-        links = driver.find_elements(By.TAG_NAME, "a")
-        for link in links:
+        elements = driver.find_elements(By.TAG_NAME, "a")
+        for el in elements:
             try:
-                href = link.get_attribute('href')
-                text = turkish_lower(link.text.strip())
+                href = el.get_attribute('href')
+                text = el.text.strip()
                 if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href and text:
-                    if any(kw in text for kw in KEYWORDS):
-                        unique_jobs[href] = link.text.strip()
+                    # Sadece daha önce hiç tıklamadığımız YENİ linkleri listeye al
+                    if href not in seen_history:
+                        all_links[href] = text
             except: continue
+            
+    # Topladığımız tüm yeni ilanların içine tek tek girip metni okuyoruz
+    for url, title in all_links.items():
+        try:
+            driver.get(url)
+            time.sleep(3) # İlan detayının yüklenmesini bekle
+            body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
+            
+            # Eğer ilanın detay metninde aradığımız bölüm/kelime varsa mesaj at!
+            if any(kw in body_text for kw in KEYWORDS):
+                english_title = translate_title(title)
+                send_telegram_message(f"<b>{english_title}</b>\n\n<a href='{url}'>View Details</a>")
+                time.sleep(1)
+                
+            # Aradığımız kelime yoksa bile (veya varsa da) ilanı 'okundu' olarak kaydet ki bir dahaki sefer içine girmesin
+            seen_history.append(url)
+        except Exception as e:
+            pass
             
     driver.quit()
     
-    seen_file = "seen_jobs.json"
-    seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
-    
-    new_jobs = [(url, title) for url, title in unique_jobs.items() if url not in seen_history]
-    
-    for url, title in new_jobs:
-        english_title = translate_title(title)
-        send_telegram_message(f"<b>{english_title}</b>\n\n<a href='{url}'>View Details</a>")
-        seen_history.append(url)
-        time.sleep(1)
-        
     with open(seen_file, "w") as f:
         json.dump(seen_history, f)
 
