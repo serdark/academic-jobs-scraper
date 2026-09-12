@@ -15,30 +15,20 @@ KEYWORDS = [
     "iletişim tasarımı", "grafik", "gastronomi", "mutfak sanatları"
 ]
 
+def turkish_lower(text):
+    # Türkçe İ/I harflerinin sorunsuz küçültülmesini sağlar
+    return text.replace("İ", "i").replace("I", "ı").lower()
+
 def translate_title(title):
-    # Gereksiz resmi kelimeleri siler
-    t = title.replace("Rektörlüğünden", "").replace("Rektörlüğü", "")
-    t = t.replace("Başkanlığından", "").replace("Başkanlığı", "")
-    
-    # Kurum isimlerini İngilizceye çevirir
+    t = title.replace("Rektörlüğünden", "").replace("Rektörlüğü", "").replace("Başkanlığından", "").replace("Başkanlığı", "")
     t = t.replace("Üniversitesi", "University").replace("Üniversite", "University")
     t = t.replace("Enstitüsü", "Institute").replace("Enstitü", "Institute")
     t = t.replace("Vakfı", "Foundation")
-    
-    # Unvanları ve Ekleri İngilizceye çevirir
-    t = t.replace("Öğretim Üyesi", "Faculty Member")
-    t = t.replace("Öğretim Elemanı", "Academic Staff")
-    t = t.replace("Öğretim Görevlisi", "Lecturer")
-    t = t.replace("Araştırma Görevlisi", "Research Assistant")
-    t = t.replace("Akademik Personel", "Academic Staff")
-    t = t.replace("Alım İlanı", "Recruitment")
-    t = t.replace("Alımı İlanı", "Recruitment")
-    t = t.replace("Alımı", "Recruitment")
-    t = t.replace("İlanı", "Announcement")
-    t = t.replace("İlan", "Announcement")
-    t = t.replace("Düzeltme", "Correction")
-    
-    # Fazladan boşlukları temizler
+    t = t.replace("Öğretim Üyesi", "Faculty Member").replace("Öğretim Elemanı", "Academic Staff")
+    t = t.replace("Öğretim Görevlisi", "Lecturer").replace("Araştırma Görevlisi", "Research Assistant")
+    t = t.replace("Akademik Personel", "Academic Staff").replace("Alım İlanı", "Recruitment")
+    t = t.replace("Alımı İlanı", "Recruitment").replace("Alımı", "Recruitment")
+    t = t.replace("İlanı", "Announcement").replace("İlan", "Announcement").replace("Düzeltme", "Correction")
     t = re.sub(r'\s+', ' ', t).strip()
     return t
 
@@ -53,20 +43,23 @@ def main():
     options.add_argument("--disable-dev-shm-usage")
     driver = webdriver.Chrome(options=options)
     
-    driver.get("https://www.ilan.gov.tr/ilan/kategori/73/akademik-personel-alimlari?currentPage=0&field=publish_time&order=desc")
-    time.sleep(10)
-    
-    links = driver.find_elements(By.TAG_NAME, "a")
     unique_jobs = {}
     
-    for link in links:
-        try:
-            href = link.get_attribute('href')
-            text = link.text.strip().lower()
-            if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href and text:
-                if any(kw in text for kw in KEYWORDS):
-                    unique_jobs[href] = link.text.strip()
-        except: continue
+    # Artık ilanı kaçırmamak için ilk 2 sayfayı (0 ve 1) sırayla geziyoruz!
+    for page in [0, 1]:
+        driver.get(f"https://www.ilan.gov.tr/ilan/kategori/73/akademik-personel-alimlari?currentPage={page}&field=publish_time&order=desc")
+        time.sleep(10)
+        
+        links = driver.find_elements(By.TAG_NAME, "a")
+        for link in links:
+            try:
+                href = link.get_attribute('href')
+                text = turkish_lower(link.text.strip())
+                if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href and text:
+                    if any(kw in text for kw in KEYWORDS):
+                        unique_jobs[href] = link.text.strip()
+            except: continue
+            
     driver.quit()
     
     seen_file = "seen_jobs.json"
