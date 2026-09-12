@@ -10,16 +10,13 @@ from selenium.webdriver.common.by import By
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
-KEYWORDS = [
-    "görsel", "görsel iletişim", "iletişim tasarım", "iletişim ve tasarımı", 
-    "iletişim tasarımı", "grafik", "gastronomi", "mutfak sanatları"
-]
+VCD_KEYWORDS = ["görsel", "görsel iletişim", "iletişim tasarım", "iletişim ve tasarımı", "iletişim tasarımı", "grafik"]
+GASTRO_KEYWORDS = ["gastronomi", "mutfak sanatları"]
 
 def turkish_lower(text):
     return text.replace("İ", "i").replace("I", "ı").lower()
 
 def extract_university_name(title):
-    # Gereksiz tüm Türkçe ekleri ve unvanları temizleyip sadece Üniversite adını İngilizce bırakır
     t = title.replace("Rektörlüğünden", "").replace("Rektörlüğü", "").replace("Başkanlığından", "").replace("Başkanlığı", "")
     t = t.replace("Öğretim Üyesi", "").replace("Öğretim Elemanı", "")
     t = t.replace("Öğretim Görevlisi", "").replace("Araştırma Görevlisi", "")
@@ -31,7 +28,7 @@ def extract_university_name(title):
     t = t.replace("Enstitüsü", "Institute").replace("Enstitü", "Institute")
     t = t.replace("Vakfı", "Foundation")
     
-    t = re.sub(r'\(.*?\)', '', t) # Parantez içlerini temizle
+    t = re.sub(r'\(.*?\)', '', t)
     t = re.sub(r'\s+', ' ', t).strip()
     return t
 
@@ -72,24 +69,25 @@ def main():
             
             body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
             
-            # 1. KURAL: Kesinlikle Araştırma Görevlisi kelimesi geçmeli
             if "araştırma görevlisi" not in body_text:
                 seen_history.append(url)
                 continue
             
-            # 2. KURAL: Sizin belirlediğiniz anahtar kelimelerden biri geçmeli
-            matched_kws = [kw for kw in KEYWORDS if kw in body_text]
+            is_vcd = any(kw in body_text for kw in VCD_KEYWORDS)
+            is_gastro = any(kw in body_text for kw in GASTRO_KEYWORDS)
             
-            if matched_kws:
+            if is_vcd or is_gastro:
                 page_title = driver.title.split("-")[0].strip() if driver.title else ""
                 uni_name = extract_university_name(page_title)
                 
-                # Hangi kelimeler bulunduysa yan yana ve baş harfi büyük yazılır
-                fields = ", ".join(matched_kws).title()
+                fields = []
+                if is_vcd: fields.append("VCD")
+                if is_gastro: fields.append("Gastronomi")
+                fields_str = ", ".join(fields)
                 
                 msg = f"<b>{uni_name}</b>\n\n"
-                msg += f"<b>Position:</b> Research Assistant\n"
-                msg += f"<b>Field:</b> {fields}\n\n"
+                msg += f"Research Assistant\n"
+                msg += f"{fields_str}\n\n"
                 msg += f"<a href='{url}'>View Details</a>"
                 
                 send_telegram_message(msg)
