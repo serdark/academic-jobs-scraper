@@ -40,15 +40,17 @@ def main():
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    # GitHub'ın ekranı daraltıp yazıları bozmasını engelleyen komut:
+    options.add_argument("--window-size=1920,1080")
     driver = webdriver.Chrome(options=options)
     
     seen_file = "seen_jobs.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
     
-    all_links = {}
+    all_links = set()
     
-    # Sadece 1. ve 2. sayfadaki linkleri topluyoruz
-    for page in [0, 1]:
+    # Garantili olması için tam 4 sayfa (0, 1, 2, 3) geriye dönük taranıyor!
+    for page in [0, 1, 2, 3]:
         driver.get(f"https://www.ilan.gov.tr/ilan/kategori/73/akademik-personel-alimlari?currentPage={page}&field=publish_time&order=desc")
         time.sleep(10)
         
@@ -56,27 +58,24 @@ def main():
         for el in elements:
             try:
                 href = el.get_attribute('href')
-                text = el.text.strip()
-                if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href and text:
-                    # Sadece daha önce hiç tıklamadığımız YENİ linkleri listeye al
+                if href and "ilan.gov.tr/ilan/" in href and "/kategori/" not in href and "/tum-ilanlar" not in href:
                     if href not in seen_history:
-                        all_links[href] = text
+                        all_links.add(href)
             except: continue
             
-    # Topladığımız tüm yeni ilanların içine tek tek girip metni okuyoruz
-    for url, title in all_links.items():
+    for url in list(all_links):
         try:
             driver.get(url)
-            time.sleep(3) # İlan detayının yüklenmesini bekle
+            time.sleep(3) 
+            
             body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
             
-            # Eğer ilanın detay metninde aradığımız bölüm/kelime varsa mesaj at!
             if any(kw in body_text for kw in KEYWORDS):
-                english_title = translate_title(title)
+                page_title = driver.title.split("-")[0].strip() if driver.title else ""
+                english_title = translate_title(page_title)
                 send_telegram_message(f"<b>{english_title}</b>\n\n<a href='{url}'>View Details</a>")
                 time.sleep(1)
                 
-            # Aradığımız kelime yoksa bile (veya varsa da) ilanı 'okundu' olarak kaydet ki bir dahaki sefer içine girmesin
             seen_history.append(url)
         except Exception as e:
             pass
