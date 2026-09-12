@@ -18,16 +18,20 @@ KEYWORDS = [
 def turkish_lower(text):
     return text.replace("İ", "i").replace("I", "ı").lower()
 
-def translate_title(title):
+def extract_university_name(title):
+    # Gereksiz tüm Türkçe ekleri ve unvanları temizleyip sadece Üniversite adını İngilizce bırakır
     t = title.replace("Rektörlüğünden", "").replace("Rektörlüğü", "").replace("Başkanlığından", "").replace("Başkanlığı", "")
+    t = t.replace("Öğretim Üyesi", "").replace("Öğretim Elemanı", "")
+    t = t.replace("Öğretim Görevlisi", "").replace("Araştırma Görevlisi", "")
+    t = t.replace("Akademik Personel", "").replace("Alım İlanı", "")
+    t = t.replace("Alımı İlanı", "").replace("Alımı", "")
+    t = t.replace("İlanı", "").replace("İlan", "").replace("Düzeltme", "")
+    
     t = t.replace("Üniversitesi", "University").replace("Üniversite", "University")
     t = t.replace("Enstitüsü", "Institute").replace("Enstitü", "Institute")
     t = t.replace("Vakfı", "Foundation")
-    t = t.replace("Öğretim Üyesi", "Faculty Member").replace("Öğretim Elemanı", "Academic Staff")
-    t = t.replace("Öğretim Görevlisi", "Lecturer").replace("Araştırma Görevlisi", "Research Assistant")
-    t = t.replace("Akademik Personel", "Academic Staff").replace("Alım İlanı", "Recruitment")
-    t = t.replace("Alımı İlanı", "Recruitment").replace("Alımı", "Recruitment")
-    t = t.replace("İlanı", "Announcement").replace("İlan", "Announcement").replace("Düzeltme", "Correction")
+    
+    t = re.sub(r'\(.*?\)', '', t) # Parantez içlerini temizle
     t = re.sub(r'\s+', ' ', t).strip()
     return t
 
@@ -40,7 +44,6 @@ def main():
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    # GitHub'ın ekranı daraltıp yazıları bozmasını engelleyen komut:
     options.add_argument("--window-size=1920,1080")
     driver = webdriver.Chrome(options=options)
     
@@ -49,7 +52,6 @@ def main():
     
     all_links = set()
     
-    # Garantili olması için tam 4 sayfa (0, 1, 2, 3) geriye dönük taranıyor!
     for page in [0, 1, 2, 3]:
         driver.get(f"https://www.ilan.gov.tr/ilan/kategori/73/akademik-personel-alimlari?currentPage={page}&field=publish_time&order=desc")
         time.sleep(10)
@@ -70,10 +72,27 @@ def main():
             
             body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
             
-            if any(kw in body_text for kw in KEYWORDS):
+            # 1. KURAL: Kesinlikle Araştırma Görevlisi kelimesi geçmeli
+            if "araştırma görevlisi" not in body_text:
+                seen_history.append(url)
+                continue
+            
+            # 2. KURAL: Sizin belirlediğiniz anahtar kelimelerden biri geçmeli
+            matched_kws = [kw for kw in KEYWORDS if kw in body_text]
+            
+            if matched_kws:
                 page_title = driver.title.split("-")[0].strip() if driver.title else ""
-                english_title = translate_title(page_title)
-                send_telegram_message(f"<b>{english_title}</b>\n\n<a href='{url}'>View Details</a>")
+                uni_name = extract_university_name(page_title)
+                
+                # Hangi kelimeler bulunduysa yan yana ve baş harfi büyük yazılır
+                fields = ", ".join(matched_kws).title()
+                
+                msg = f"<b>{uni_name}</b>\n\n"
+                msg += f"<b>Position:</b> Research Assistant\n"
+                msg += f"<b>Field:</b> {fields}\n\n"
+                msg += f"<a href='{url}'>View Details</a>"
+                
+                send_telegram_message(msg)
                 time.sleep(1)
                 
             seen_history.append(url)
