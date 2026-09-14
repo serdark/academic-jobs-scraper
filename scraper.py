@@ -121,4 +121,22 @@ def check_academic_jobs(driver):
         except Exception as e:
             pass
             
-    if new_found or not os.path.exists(seen_
+    if new_found or not os.path.exists(seen_file):
+        with open(seen_file, "w") as f:
+            json.dump(seen_history, f)
+
+def main():
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1920,1080")
+    driver = webdriver.Chrome(options=options)
+    
+    check_nisantasi(driver)
+    check_academic_jobs(driver)
+    
+    driver.quit()
+
+if __name__ == "__main__":
+    main()
