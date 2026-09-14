@@ -36,16 +36,38 @@ def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
 
-def main():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(options=options)
+def check_nisantasi(driver):
+    seen_file = "seen_nisantasi.json"
+    seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
+    new_found = False
     
+    try:
+        driver.get("https://www.nisantasi.edu.tr/duyurular")
+        time.sleep(3)
+        cards = driver.find_elements(By.CLASS_NAME, "nev-ann-card")
+        for card in cards:
+            title = card.find_element(By.CLASS_NAME, "nev-ann-title").text.strip()
+            href = card.find_element(By.TAG_NAME, "a").get_attribute("href")
+            
+            if href and href not in seen_history:
+                msg = f"📢 <b>Yeni Nişantaşı Duyurusu</b>\n\n"
+                msg += f"{title}\n\n"
+                msg += f"<a href='{href}'>Görüntüle</a>"
+                send_telegram_message(msg)
+                seen_history.append(href)
+                new_found = True
+                time.sleep(1)
+    except Exception as e:
+        pass
+        
+    if new_found or not os.path.exists(seen_file):
+        with open(seen_file, "w") as f:
+            json.dump(seen_history, f)
+
+def check_academic_jobs(driver):
     seen_file = "seen_jobs.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
+    new_found = False
     
     all_links = set()
     
@@ -71,6 +93,7 @@ def main():
             
             if "araştırma görevlisi" not in body_text:
                 seen_history.append(url)
+                new_found = True
                 continue
             
             is_vcd = any(kw in body_text for kw in VCD_KEYWORDS)
@@ -94,13 +117,8 @@ def main():
                 time.sleep(1)
                 
             seen_history.append(url)
+            new_found = True
         except Exception as e:
             pass
             
-    driver.quit()
-    
-    with open(seen_file, "w") as f:
-        json.dump(seen_history, f)
-
-if __name__ == "__main__":
-    main()
+    if new_found or not os.path.exists(seen_
