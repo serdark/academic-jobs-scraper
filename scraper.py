@@ -35,29 +35,44 @@ def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
 
-def check_nisantasi(driver):
-    # 16 Eylül 2026 TSİ 06:00 (UTC 03:00) saat sınırı
-    stop_time = datetime(2026, 9, 16, 3, 0)
-    if datetime.utcnow() > stop_time:
+def check_yeditepe(driver):
+    # Sadece 18 Eylül 2026 Cuma (TSİ 08:00 ile 23:59 arası) aktif olur
+    # UTC zaman dilimiyle: 18 Eylül 2026 05:00 - 20:59 arası
+    now = datetime.utcnow()
+    start_time = datetime(2026, 9, 18, 5, 0)
+    end_time = datetime(2026, 9, 18, 20, 59)
+    
+    if not (start_time <= now <= end_time):
         return
         
-    seen_file = "seen_nisantasi.json"
+    seen_file = "seen_yeditepe.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
     new_found = False
     
     try:
-        driver.get("https://www.nisantasi.edu.tr/duyurular")
+        driver.get("https://www.yeditepe.edu.tr/tr/duyuru")
         time.sleep(3)
-        cards = driver.find_elements(By.CLASS_NAME, "nev-ann-card")
-        for card in cards:
-            title = card.find_element(By.CLASS_NAME, "nev-ann-title").text.strip()
-            href = card.find_element(By.TAG_NAME, "a").get_attribute("href")
-            
-            if href and href not in seen_history:
-                msg = f"📢 <b>Yeni Nişantaşı Duyurusu</b>\n\n"
-                msg += f"{title}\n\n"
+        links = driver.find_elements(By.TAG_NAME, "a")
+        
+        all_hrefs = set()
+        for link in links:
+            try:
+                href = link.get_attribute("href")
+                if href and "/tr/duyuru/" in href:
+                    all_hrefs.add(href)
+            except: continue
+                
+        for href in all_hrefs:
+            if href not in seen_history:
+                driver.get(href)
+                time.sleep(2)
+                page_title = driver.title.split("|")[0].split("-")[0].strip() if driver.title else "Yeditepe Duyurusu"
+                
+                msg = f"📢 <b>Yeditepe Duyurusu</b>\n\n"
+                msg += f"{page_title}\n\n"
                 msg += f"<a href='{href}'>Görüntüle</a>"
                 send_telegram_message(msg)
+                
                 seen_history.append(href)
                 new_found = True
                 time.sleep(1)
@@ -137,7 +152,7 @@ def main():
     options.add_argument("--window-size=1920,1080")
     driver = webdriver.Chrome(options=options)
     
-    check_nisantasi(driver)
+    check_yeditepe(driver)
     check_academic_jobs(driver)
     
     driver.quit()
