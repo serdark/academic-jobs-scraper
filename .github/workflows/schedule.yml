@@ -2,7 +2,12 @@ name: Academic Jobs Scraper
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Hafta içi standart ilan kontrolü (TSİ)
+    - cron: "0 0,4,5,6,7,8,9,10,12,14,16,18,21 * * 1-5"
+    # Hafta sonu standart ilan kontrolü (TSİ)
+    - cron: "0 0,4,8,12,16,20 * * 0,6"
+    # YEDİTEPE: Sadece 18 Eylül Cuma, TSİ 08:00 - 23:59 arası her 30 dakikada bir!
+    - cron: "0,30 5-20 18 9 *"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +29,6 @@ jobs:
       - run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git add seen_jobs.json seen_nisantasi.json || true
+          git add seen_jobs.json seen_yeditepe.json || true
           git commit -m "Update seen jobs" || true
           git push || true
