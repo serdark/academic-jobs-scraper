@@ -3,6 +3,7 @@ import time
 import requests
 import json
 import re
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -23,11 +24,9 @@ def extract_university_name(title):
     t = t.replace("Akademik Personel", "").replace("Alım İlanı", "")
     t = t.replace("Alımı İlanı", "").replace("Alımı", "")
     t = t.replace("İlanı", "").replace("İlan", "").replace("Düzeltme", "")
-    
     t = t.replace("Üniversitesi", "University").replace("Üniversite", "University")
     t = t.replace("Enstitüsü", "Institute").replace("Enstitü", "Institute")
     t = t.replace("Vakfı", "Foundation")
-    
     t = re.sub(r'\(.*?\)', '', t)
     t = re.sub(r'\s+', ' ', t).strip()
     return t
@@ -37,6 +36,11 @@ def send_telegram_message(message):
     requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
 
 def check_nisantasi(driver):
+    # 16 Eylül 2026 TSİ 06:00 (UTC 03:00) saat sınırı
+    stop_time = datetime(2026, 9, 16, 3, 0)
+    if datetime.utcnow() > stop_time:
+        return
+        
     seen_file = "seen_nisantasi.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
     new_found = False
