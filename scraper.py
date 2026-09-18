@@ -35,54 +35,63 @@ def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
 
-def check_yeditepe(driver):
+def check_nisantasi(driver):
     now = datetime.utcnow()
-    start_time = datetime(2026, 9, 18, 5, 0)
-    end_time = datetime(2026, 9, 18, 20, 59)
+    start_time = datetime(2026, 9, 22, 5, 0) # 22 Eylül 2026, TSİ 08:00
     
-    if not (start_time <= now <= end_time):
+    if now < start_time:
         return
         
-    seen_file = "seen_yeditepe.json"
+    seen_file = "seen_nisantasi.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
     new_found = False
     
-    YEDITEPE_KEYWORDS = ["dijital oyun tasarımı", "nihai değerlendirme", "araştırma görevlisi"]
+    urls_to_check = [
+        "https://www.nisantasi.edu.tr/duyurular",
+        "https://stf.nisantasi.edu.tr/duyurular"
+    ]
     
-    try:
-        driver.get("https://www.yeditepe.edu.tr/tr/duyuru")
-        time.sleep(3)
-        links = driver.find_elements(By.TAG_NAME, "a")
-        
-        all_hrefs = set()
-        for link in links:
-            try:
-                href = link.get_attribute("href")
-                if href and "/tr/duyuru/" in href:
-                    all_hrefs.add(href)
-            except: continue
-                
-        for href in all_hrefs:
-            if href not in seen_history:
-                driver.get(href)
-                time.sleep(2)
-                page_title = driver.title.split("|")[0].split("-")[0].strip() if driver.title else "Yeditepe Duyurusu"
-                
-                body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
-                title_lower = turkish_lower(page_title)
-                
-                if any(kw in title_lower or kw in body_text for kw in YEDITEPE_KEYWORDS):
-                    msg = f"📢 <b>Yeditepe Duyurusu</b>\n\n"
-                    msg += f"{page_title}\n\n"
-                    msg += f"<a href='{href}'>Görüntüle</a>"
-                    send_telegram_message(msg)
-                    time.sleep(1)
-                
-                seen_history.append(href)
-                new_found = True
-    except Exception as e:
-        pass
-        
+    for base_url in urls_to_check:
+        try:
+            driver.get(base_url)
+            time.sleep(3)
+            links = driver.find_elements(By.TAG_NAME, "a")
+            
+            all_hrefs = set()
+            for link in links:
+                try:
+                    href = link.get_attribute("href")
+                    if href and ("duyuru" in href.lower()):
+                        if not href.startswith("http"):
+                            domain = "https://stf.nisantasi.edu.tr" if "stf." in base_url else "https://www.nisantasi.edu.tr"
+                            href = domain + href if href.startswith("/") else domain + "/" + href
+                        all_hrefs.add(href)
+                except: continue
+                    
+            for href in all_hrefs:
+                if href not in seen_history:
+                    driver.get(href)
+                    time.sleep(2)
+                    page_title = driver.title.split("|")[0].split("-")[0].strip() if driver.title else "Nişantaşı Duyurusu"
+                    
+                    body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
+                    title_lower = turkish_lower(page_title)
+                    
+                    combined_text = title_lower + " " + body_text
+                    
+                    # Hem 'grafik tasarım' hem de 'sonuç' kelimesi geçmeli
+                    if "grafik tasarım" in combined_text and "sonuç" in combined_text:
+                        msg = f"📢 <b>Nişantaşı Duyurusu</b>\n\n"
+                        msg += f"{page_title}\n\n"
+                        msg += f"<a href='{href}'>Görüntüle</a>"
+                        send_telegram_message(msg)
+                        time.sleep(1)
+                    
+                    seen_history.append(href)
+                    new_found = True
+        except Exception as e:
+            pass
+            
     if new_found or not os.path.exists(seen_file):
         with open(seen_file, "w") as f:
             json.dump(seen_history, f)
@@ -149,40 +158,20 @@ def check_academic_jobs(driver):
             json.dump(seen_history, f)
 
 def main():
-    # Bugün 18 Eylül mü diye kontrol et
-    is_critical_day = datetime.utcnow().day == 18 and datetime.utcnow().month == 9
-    
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     
-    if is_critical_day:
-        # BUGÜN İÇİN: 5.5 Saatlik aralıksız nöbetçi döngüsü (GitHub sınırı 6 saattir)
-        # Her döngü sonu 15 dakika uyur.
-        for i in range(22):
-            driver = webdriver.Chrome(options=options)
-            try:
-                check_yeditepe(driver)
-                check_academic_jobs(driver)
-            except:
-                pass
-            finally:
-                driver.quit()
-                
-            if i < 21:
-                time.sleep(15 * 60) # 15 dakika bekle
-    else:
-        # YARINDAN İTİBAREN: Eski tas tamam normal rutinine geri döner
-        driver = webdriver.Chrome(options=options)
-        try:
-            check_yeditepe(driver)
-            check_academic_jobs(driver)
-        except:
-            pass
-        finally:
-            driver.quit()
+    driver = webdriver.Chrome(options=options)
+    try:
+        check_nisantasi(driver)
+        check_academic_jobs(driver)
+    except:
+        pass
+    finally:
+        driver.quit()
 
 if __name__ == "__main__":
     main()
