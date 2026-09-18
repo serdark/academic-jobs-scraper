@@ -36,8 +36,6 @@ def send_telegram_message(message):
     requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
 
 def check_yeditepe(driver):
-    # Sadece 18 Eylül 2026 Cuma (TSİ 08:00 ile 23:59 arası) aktif olur
-    # UTC zaman dilimiyle: 18 Eylül 2026 05:00 - 20:59 arası
     now = datetime.utcnow()
     start_time = datetime(2026, 9, 18, 5, 0)
     end_time = datetime(2026, 9, 18, 20, 59)
@@ -48,6 +46,8 @@ def check_yeditepe(driver):
     seen_file = "seen_yeditepe.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
     new_found = False
+    
+    YEDITEPE_KEYWORDS = ["dijital oyun tasarımı", "nihai değerlendirme", "araştırma görevlisi"]
     
     try:
         driver.get("https://www.yeditepe.edu.tr/tr/duyuru")
@@ -68,14 +68,20 @@ def check_yeditepe(driver):
                 time.sleep(2)
                 page_title = driver.title.split("|")[0].split("-")[0].strip() if driver.title else "Yeditepe Duyurusu"
                 
-                msg = f"📢 <b>Yeditepe Duyurusu</b>\n\n"
-                msg += f"{page_title}\n\n"
-                msg += f"<a href='{href}'>Görüntüle</a>"
-                send_telegram_message(msg)
+                body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
+                title_lower = turkish_lower(page_title)
                 
+                # Eğer başlıkta veya ilan detay metninde bu üç kelimeden biri geçiyorsa mesaj at
+                if any(kw in title_lower or kw in body_text for kw in YEDITEPE_KEYWORDS):
+                    msg = f"📢 <b>Yeditepe Duyurusu</b>\n\n"
+                    msg += f"{page_title}\n\n"
+                    msg += f"<a href='{href}'>Görüntüle</a>"
+                    send_telegram_message(msg)
+                    time.sleep(1)
+                
+                # Kelime geçse de geçmese de okundu olarak işaretle ki tekrar tekrar girmesin
                 seen_history.append(href)
                 new_found = True
-                time.sleep(1)
     except Exception as e:
         pass
         
