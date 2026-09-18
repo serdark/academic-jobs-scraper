@@ -71,7 +71,6 @@ def check_yeditepe(driver):
                 body_text = turkish_lower(driver.find_element(By.TAG_NAME, "body").text)
                 title_lower = turkish_lower(page_title)
                 
-                # Eğer başlıkta veya ilan detay metninde bu üç kelimeden biri geçiyorsa mesaj at
                 if any(kw in title_lower or kw in body_text for kw in YEDITEPE_KEYWORDS):
                     msg = f"📢 <b>Yeditepe Duyurusu</b>\n\n"
                     msg += f"{page_title}\n\n"
@@ -79,7 +78,6 @@ def check_yeditepe(driver):
                     send_telegram_message(msg)
                     time.sleep(1)
                 
-                # Kelime geçse de geçmese de okundu olarak işaretle ki tekrar tekrar girmesin
                 seen_history.append(href)
                 new_found = True
     except Exception as e:
@@ -151,17 +149,40 @@ def check_academic_jobs(driver):
             json.dump(seen_history, f)
 
 def main():
+    # Bugün 18 Eylül mü diye kontrol et
+    is_critical_day = datetime.utcnow().day == 18 and datetime.utcnow().month == 9
+    
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(options=options)
     
-    check_yeditepe(driver)
-    check_academic_jobs(driver)
-    
-    driver.quit()
+    if is_critical_day:
+        # BUGÜN İÇİN: 5.5 Saatlik aralıksız nöbetçi döngüsü (GitHub sınırı 6 saattir)
+        # Her döngü sonu 15 dakika uyur.
+        for i in range(22):
+            driver = webdriver.Chrome(options=options)
+            try:
+                check_yeditepe(driver)
+                check_academic_jobs(driver)
+            except:
+                pass
+            finally:
+                driver.quit()
+                
+            if i < 21:
+                time.sleep(15 * 60) # 15 dakika bekle
+    else:
+        # YARINDAN İTİBAREN: Eski tas tamam normal rutinine geri döner
+        driver = webdriver.Chrome(options=options)
+        try:
+            check_yeditepe(driver)
+            check_academic_jobs(driver)
+        except:
+            pass
+        finally:
+            driver.quit()
 
 if __name__ == "__main__":
     main()
