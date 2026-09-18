@@ -2,14 +2,17 @@ name: Academic Jobs Scraper
 
 on:
   schedule:
-    # Hafta içi standart ilan (Kuyruğa takılmamak için saati 11 geçe çalışır)
-    - cron: "11 0,4,5,6,7,8,9,10,12,14,16,18,21 * * 1-5"
-    # Hafta sonu standart ilan
-    - cron: "11 0,4,8,12,16,20 * * 0,6"
-    # YEDİTEPE: Sadece 18 Eylül Cuma, TSİ 08:00 - 23:59 arası her 15 dakikada bir! 
-    # (Kuyruğa takılmamak için saati 11, 26, 41 ve 56 geçe çalışacak şekilde ayarlandı)
-    - cron: "11,26,41,56 5-20 18 9 *"
+    # İLAN.GOV - Hafta içi (TSİ 07, 08, 09, 10, 11, 12, 14, 17, 20, 23)
+    - cron: "11 4,5,6,7,8,9,11,14,17,20 * * 1-5"
+    # İLAN.GOV - Hafta sonu (TSİ 09:00, 13:00, 18:00)
+    - cron: "11 6,10,15 * * 0,6"
+    # NİŞANTAŞI İKİ LİNK - 22 Eylül Salı TSİ 08:00'dan itibaren her 15 dakikada bir!
+    - cron: "11,26,41,56 5-23 22 9 *"
   workflow_dispatch:
+
+# Çift mesajı önleyen altın kilit:
+concurrency:
+  group: scraper-group
 
 permissions:
   contents: write
@@ -30,7 +33,7 @@ jobs:
       - run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git add seen_jobs.json seen_yeditepe.json || true
+          git add seen_jobs.json seen_nisantasi.json || true
           git diff --staged --quiet || git commit -m "Update seen jobs"
           git pull --rebase
           git push
