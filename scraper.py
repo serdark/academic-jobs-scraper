@@ -164,14 +164,34 @@ def main():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     
-    driver = webdriver.Chrome(options=options)
-    try:
-        check_nisantasi(driver)
-        check_academic_jobs(driver)
-    except:
-        pass
-    finally:
-        driver.quit()
+    # Bugün 22 Eylül mü kontrolü
+    now = datetime.utcnow()
+    is_critical_day = (now.day == 22 and now.month == 9)
+    
+    if is_critical_day:
+        # BUGÜN İÇİN: 5.5 Saatlik aralıksız nöbetçi döngüsü (GitHub sınırı 6 saattir)
+        for i in range(22):
+            driver = webdriver.Chrome(options=options)
+            try:
+                check_nisantasi(driver)
+                check_academic_jobs(driver)
+            except:
+                pass
+            finally:
+                driver.quit()
+                
+            if i < 21:
+                time.sleep(15 * 60) # 15 dakika bekle
+    else:
+        # DİĞER GÜNLER: Normal tek seferlik çalışma (Yarın buna dönecek)
+        driver = webdriver.Chrome(options=options)
+        try:
+            check_nisantasi(driver)
+            check_academic_jobs(driver)
+        except:
+            pass
+        finally:
+            driver.quit()
 
 if __name__ == "__main__":
     main()
