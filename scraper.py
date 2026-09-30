@@ -35,68 +35,6 @@ def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
 
-def check_aydin(driver):
-    # Sadece 29 Eylül 2026 TSİ 08:00'dan sonra çalışmaya başlar
-    now = datetime.utcnow()
-    start_time = datetime(2026, 9, 29, 5, 0) # TSİ 08:00
-    
-    if now < start_time:
-        return
-        
-    seen_file = "seen_aydin.json"
-    seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
-    new_found = False
-    
-    try:
-        driver.get("https://www.aydin.edu.tr/haberler/Pages/default.aspx?lang=tr")
-        time.sleep(5)
-        links = driver.find_elements(By.TAG_NAME, "a")
-        
-        all_hrefs = {}
-        for link in links:
-            try:
-                href = link.get_attribute("href")
-                text = link.text.strip()
-                if href and ("aydin.edu.tr" in href) and len(text) > 5:
-                    if "haberler" in href.lower() or "duyuru" in href.lower() or "default.aspx" in href.lower():
-                        all_hrefs[href] = text
-            except: continue
-            
-        for href, text in all_hrefs.items():
-            if href not in seen_history:
-                # 1. Aşama: Linkin dışarıdaki metninde kelime var mı?
-                text_lower = turkish_lower(text)
-                found = False
-                
-                if "sonuç" in text_lower or "değerlendirme" in text_lower:
-                    found = True
-                    page_title = text
-                else:
-                    # 2. Aşama: PDF değilse içine girip başlığına bak
-                    if not href.endswith(".pdf"):
-                        driver.get(href)
-                        time.sleep(2)
-                        page_title = driver.title if driver.title else text
-                        title_lower = turkish_lower(page_title)
-                        if "sonuç" in title_lower or "değerlendirme" in title_lower:
-                            found = True
-                            
-                if found:
-                    msg = f"📢 <b>Aydın Üniversitesi Duyurusu</b>\n\n"
-                    msg += f"{page_title}\n\n"
-                    msg += f"<a href='{href}'>Görüntüle</a>"
-                    send_telegram_message(msg)
-                    time.sleep(1)
-                
-                seen_history.append(href)
-                new_found = True
-    except Exception as e:
-        pass
-        
-    if new_found or not os.path.exists(seen_file):
-        with open(seen_file, "w") as f:
-            json.dump(seen_history, f)
-
 def check_academic_jobs(driver):
     seen_file = "seen_jobs.json"
     seen_history = json.load(open(seen_file)) if os.path.exists(seen_file) else []
@@ -165,34 +103,13 @@ def main():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
     
-    # Bugün 29 Eylül mü?
-    now = datetime.utcnow()
-    is_critical_day = (now.day == 29 and now.month == 9)
-    
-    if is_critical_day:
-        # BUGÜN İÇİN: 5.5 Saatlik aralıksız nöbetçi döngüsü (Aydın Üniv için)
-        for i in range(22):
-            driver = webdriver.Chrome(options=options)
-            try:
-                check_aydin(driver)
-                check_academic_jobs(driver)
-            except:
-                pass
-            finally:
-                driver.quit()
-                
-            if i < 21:
-                time.sleep(15 * 60) # 15 dakika bekle
-    else:
-        # NORMAL GÜNLER
-        driver = webdriver.Chrome(options=options)
-        try:
-            check_aydin(driver)
-            check_academic_jobs(driver)
-        except:
-            pass
-        finally:
-            driver.quit()
+    driver = webdriver.Chrome(options=options)
+    try:
+        check_academic_jobs(driver)
+    except:
+        pass
+    finally:
+        driver.quit()
 
 if __name__ == "__main__":
     main()
