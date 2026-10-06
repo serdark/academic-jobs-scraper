@@ -49,21 +49,33 @@ def check_izu(driver):
     
     IZU_KEYWORDS = ["ilan", "sonuç", "araştırma görevli"]
     
+    urls_to_check = [
+        "https://www.izu.edu.tr/haberler",
+        "https://w3.izu.edu.tr/duyurular"
+    ]
+    
+    all_hrefs = {}
+    
     try:
-        driver.get("https://www.izu.edu.tr/haberler")
-        time.sleep(4)
-        links = driver.find_elements(By.TAG_NAME, "a")
-        
-        all_hrefs = {}
-        for link in links:
-            try:
-                href = link.get_attribute("href")
-                text = link.text.strip()
-                # Sadece asıl duyuru linklerini (/haberler/2026/...) yakala
-                if href and ("izu.edu.tr/haberler/20" in href) and len(text) > 5:
-                    all_hrefs[href] = text
-            except: continue
-            
+        for base_url in urls_to_check:
+            driver.get(base_url)
+            time.sleep(3)
+            links = driver.find_elements(By.TAG_NAME, "a")
+            for link in links:
+                try:
+                    href = link.get_attribute("href")
+                    text = link.text.strip()
+                    
+                    if not href or len(text) < 5:
+                        continue
+                        
+                    is_haber = "izu.edu.tr/haberler/20" in href
+                    is_duyuru = "izu.edu.tr/duyurular/" in href and "arsiv" not in href.lower() and "category=" not in href.lower()
+                    
+                    if is_haber or is_duyuru:
+                        all_hrefs[href] = text
+                except: continue
+                
         for href, text in all_hrefs.items():
             if href not in seen_history:
                 # 1. Aşama: Linkin kendi metninde kelime var mı?
@@ -71,7 +83,7 @@ def check_izu(driver):
                 found = any(kw in text_lower for kw in IZU_KEYWORDS)
                 page_title = text
                 
-                # 2. Aşama: Link metninde yoksa sayfanın içine gir başlığa/metne bak
+                # 2. Aşama: Link metninde yoksa sayfanın içine gir
                 if not found and not href.endswith(".pdf"):
                     driver.get(href)
                     time.sleep(2)
@@ -174,8 +186,9 @@ def main():
     is_izu_critical_day = (now.day == 6 and now.month == 10)
     
     if is_izu_critical_day:
-        # BUGÜN İÇİN: 5.5 Saatlik aralıksız nöbetçi döngüsü (İZÜ için)
-        for i in range(22):
+        # BUGÜN İÇİN: 5.5 Saatlik aralıksız nöbetçi döngüsü (İZÜ için her 5 dakikada bir)
+        # 330 dakika (5.5 saat) / 5 dakika = 66 tur
+        for i in range(66):
             driver = webdriver.Chrome(options=options)
             try:
                 check_izu(driver)
@@ -185,8 +198,8 @@ def main():
             finally:
                 driver.quit()
                 
-            if i < 21:
-                time.sleep(15 * 60) # 15 dakika bekle
+            if i < 65:
+                time.sleep(5 * 60) # 5 dakika bekle
     else:
         # DİĞER GÜNLER
         driver = webdriver.Chrome(options=options)
